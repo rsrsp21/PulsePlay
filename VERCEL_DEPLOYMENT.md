@@ -52,6 +52,13 @@ If Vercel asks for project settings, use:
 - Build command: `npm run build`
 - Output directory: `.next`
 
+If you deploy with the CLI, run it from `frontend/`:
+
+```bash
+cd frontend
+npx vercel --prod
+```
+
 ## Storage Note
 
 Realtime Database is used when Firebase Admin env vars and `FIREBASE_DATABASE_URL` are configured. If they are missing, the app uses server memory for live rounds, chat, and points, which is fine for demos but not durable across serverless cold starts.
