@@ -1,6 +1,6 @@
 # Pulse Play Architecture
 
-Pulse Play now runs as one deployable Next.js application.
+Pulse Play runs as one deployable Next.js application, currently hosted at `https://pulseplay-apl.vercel.app`.
 
 ```mermaid
 graph TD
@@ -16,7 +16,7 @@ graph TD
 
 - `frontend/app/page.jsx` renders the Pulse Play app.
 - `frontend/src/App.jsx` owns the live room state, auth modal, tabs, and polling.
-- `frontend/src/components/` contains Arena, Picks, Room, Plays, Intel, and Header views.
+- `frontend/src/components/` contains the dashboard, timeline, picks, fan room, tactical, and header views.
 
 ## Backend
 
@@ -37,4 +37,4 @@ The agent creates one active pick round per 3-ball window:
 
 ## Deployment
 
-The app deploys to Vercel from the `frontend` directory. Environment variables are configured in Vercel Project Settings.
+The app deploys from the `frontend` directory on Vercel. Environment variables are configured in Vercel Project Settings.
