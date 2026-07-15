@@ -104,7 +104,7 @@ Notes:
 
 ## Deployment
 
-The app is deployed at `[PulsePlay](https://pulseplay-apl.vercel.app)`.
+The app is deployed at [PulsePlay](https://pulseplay-apl.vercel.app).
 
 The project is designed to be deployed from the `frontend` directory on Vercel.
 
