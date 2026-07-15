@@ -1,18 +1,17 @@
-import React from 'react';
-
 export default function TacticalTab({ matchState }) {
     return (
         <div className="tab-viewport">
-            <div className="mb-6 pb-4 border-b border-light" style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-light)' }}>
-                <h3 className="text-xl font-extrabold text-main" style={{ fontSize: '1.35rem', fontWeight: 800 }}>
-                    Match Intel
-                </h3>
-                <p className="text-xs text-muted mt-1">
-                    Clean live context for the innings, chase, and players in action.
-                </p>
+            <div className="section-heading">
+                <div>
+                    <p className="eyebrow">Match Intel</p>
+                    <h2>Live context at a glance</h2>
+                    <p className="text-xs text-muted mt-1">
+                        Clean live context for the innings, chase, and players in action.
+                    </p>
+                </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+            <div className="intel-grid">
                 {[
                     ['Batting team', matchState?.battingTeam],
                     ['Bowling team', matchState?.opponent],
@@ -31,13 +30,9 @@ export default function TacticalTab({ matchState }) {
                     ['Status', matchState?.status],
                     ['Source', matchState?.source],
                 ].map(([label, value]) => (
-                    <div key={label} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '8px', boxShadow: 'var(--shadow-sm)' }}>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
-                            {label}
-                        </div>
-                        <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                            {value ?? '--'}
-                        </div>
+                    <div key={label} className="intel-card">
+                        <div className="label">{label}</div>
+                        <div className="value">{value ?? '--'}</div>
                     </div>
                 ))}
             </div>

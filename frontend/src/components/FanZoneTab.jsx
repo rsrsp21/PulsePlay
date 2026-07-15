@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function FanZoneTab({ chat, onSubmitChat, isSignedIn, onJoin }) {
     const [text, setText] = useState('');
@@ -23,7 +23,7 @@ export default function FanZoneTab({ chat, onSubmitChat, isSignedIn, onJoin }) {
 
     return (
         <div className="tab-viewport">
-            <div className="room-shell glass-panel">
+            <div className="room-shell">
                 <div className="room-header">
                     <div>
                         <p className="eyebrow">Live Room</p>
@@ -56,7 +56,7 @@ export default function FanZoneTab({ chat, onSubmitChat, isSignedIn, onJoin }) {
                         maxLength={120}
                     />
                     <button type="submit" aria-label="Send">
-                        <i className="fa-solid fa-paper-plane"></i>
+                        <span className="material-symbols-rounded">send</span>
                     </button>
                 </form>
             </div>

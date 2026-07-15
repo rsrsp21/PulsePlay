@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function DashboardTab({ matchState, onCheer }) {
     if (!matchState) return null;
 
@@ -17,7 +15,7 @@ export default function DashboardTab({ matchState, onCheer }) {
             </div>
 
             <div className="dashboard-grid">
-                <div className="insight-card c-yellow">
+                <div className="insight-card">
                     <h4>Room Energy</h4>
                     <div className="energy-meter">
                         <div className="meter-arc">
@@ -33,7 +31,7 @@ export default function DashboardTab({ matchState, onCheer }) {
                     <p className="muted-copy">Every cheer, pick, and reaction pushes the live room pulse.</p>
                 </div>
 
-                <div className="insight-card c-blue">
+                <div className="insight-card">
                     <h4>Chase Pressure</h4>
                     {hasAdvantage ? (
                         <div className="pressure-stack">
@@ -57,7 +55,7 @@ export default function DashboardTab({ matchState, onCheer }) {
                     </div>
                 </div>
 
-                <div className="insight-card c-green">
+                <div className="insight-card">
                     <h4>On Strike</h4>
                     <div className="player-vs">
                         <div>
@@ -71,7 +69,12 @@ export default function DashboardTab({ matchState, onCheer }) {
                     </div>
                     <div className="recent-strip">
                         {(recentDeliveries?.length ? recentDeliveries : ['--']).map((ball, index) => (
-                            <span key={`${ball}-${index}`}>{ball}</span>
+                            <span
+                                key={`${ball}-${index}`}
+                                className={/W/i.test(ball) ? 'out' : /4|6/.test(ball) ? 'hot' : ''}
+                            >
+                                {ball}
+                            </span>
                         ))}
                     </div>
                     <p className="muted-copy">{runsRequired ? `${runsRequired} runs still on the board.` : 'Waiting for the next live equation.'}</p>
@@ -84,10 +87,10 @@ export default function DashboardTab({ matchState, onCheer }) {
                     <h4>Send a live reaction</h4>
                 </div>
                 <div className="cheer-actions">
-                    <button onClick={onCheer}><i className="fa-solid fa-fire text-red"></i> Shot</button>
-                    <button onClick={onCheer}><i className="fa-solid fa-bolt text-blue"></i> Boundary</button>
-                    <button onClick={onCheer}><i className="fa-solid fa-star text-yellow"></i> Maximum</button>
-                    <button onClick={onCheer}><i className="fa-solid fa-hands-clapping text-green"></i> Catch</button>
+                    <button onClick={onCheer}><span className="material-symbols-rounded text-red">sports_cricket</span> Shot</button>
+                    <button onClick={onCheer}><span className="material-symbols-rounded text-blue">bolt</span> Boundary</button>
+                    <button onClick={onCheer}><span className="material-symbols-rounded filled text-yellow">star</span> Maximum</button>
+                    <button onClick={onCheer}><span className="material-symbols-rounded text-green">back_hand</span> Catch</button>
                 </div>
             </div>
         </div>

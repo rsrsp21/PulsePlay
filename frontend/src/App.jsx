@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import DashboardTab from './components/DashboardTab';
 import TimelineTab from './components/TimelineTab';
@@ -16,6 +16,29 @@ import {
 } from './firebaseClient';
 
 const API_BASE = '/api';
+
+function BrandLogo({ size = 36 }) {
+    return (
+        <svg className="brand-logo" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+            <defs>
+                <linearGradient id="pp-brand" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor="#1a73e8" />
+                    <stop offset="1" stopColor="#188038" />
+                </linearGradient>
+            </defs>
+            <rect width="64" height="64" rx="16" fill="url(#pp-brand)" />
+            <polyline
+                points="10 36 21 36 27 22 34 46 40 31 54 31"
+                fill="none"
+                stroke="#fff"
+                strokeWidth="4.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <circle cx="49" cy="17" r="5" fill="#fbbc04" />
+        </svg>
+    );
+}
 
 function AuthPanel({ mode, onModeChange, onSubmit, onClose }) {
     const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -38,13 +61,11 @@ function AuthPanel({ mode, onModeChange, onSubmit, onClose }) {
 
     return (
         <div className="auth-backdrop">
-            <form className="auth-card glass-panel" onSubmit={handleSubmit}>
-                <button type="button" className="icon-button auth-close" onClick={onClose} aria-label="Close">
-                    <i className="fa-solid fa-xmark"></i>
+            <form className="auth-card" onSubmit={handleSubmit}>
+                <button type="button" className="icon-button subtle auth-close" onClick={onClose} aria-label="Close">
+                    <span className="material-symbols-rounded">close</span>
                 </button>
-                <div className="brand-mark large">
-                    <span>P</span>
-                </div>
+                <BrandLogo size={48} />
                 <h2>{isSignup ? 'Create your Pulse Play account' : 'Welcome back to Pulse Play'}</h2>
                 <p>Join the live room, lock predictions, post reactions, and climb the match leaderboard.</p>
                 {!isFirebaseConfigured && (
@@ -114,8 +135,20 @@ export default function App() {
     const [authMode, setAuthMode] = useState('signup');
     const [showAuth, setShowAuth] = useState(false);
     const [player, setPlayer] = useState(null);
+    const [theme, setTheme] = useState(() => (
+        typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
+    ));
 
     useEffect(() => listenToPlayer(setPlayer), []);
+
+    const toggleTheme = () => {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        try {
+            localStorage.setItem('pp-theme', next);
+        } catch { /* private mode: theme just won't persist */ }
+        setTheme(next);
+    };
 
     const authedFetch = async (url, options = {}) => {
         const token = player?.getIdToken ? await player.getIdToken() : null;
@@ -135,19 +168,19 @@ export default function App() {
                 const data = await res.json();
                 setLiveMatches(data.matches || []);
             }
-        } catch (err) {}
+        } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
     const fetchCoreState = async () => {
         try {
-            const res = await fetch(`${API_BASE}/state`);
+            const res = await authedFetch(`${API_BASE}/state`);
             if (res.ok) {
                 const data = await res.json();
                 setMatchState(data.matchState);
                 setActiveGuid(data.matchState?.guid);
                 setCommentary(data.commentary);
             }
-        } catch (err) {}
+        } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
     const fetchSecondaryLists = async () => {
@@ -155,23 +188,27 @@ export default function App() {
             fetch(`${API_BASE}/moments`).then(r => r.json()).then(d => setMoments(d.moments || [])).catch(() => {});
             authedFetch(`${API_BASE}/picks`).then(r => r.json()).then(d => setPicks(d.picks || [])).catch(() => {});
             authedFetch(`${API_BASE}/chat`).then(r => r.json()).then(d => setChat(d.chat || [])).catch(() => {});
-        } catch (err) {}
+        } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
     useEffect(() => {
-        fetchLiveMatches();
-        fetchCoreState();
-        fetchSecondaryLists();
+        const kickoff = setTimeout(() => {
+            fetchLiveMatches();
+            fetchCoreState();
+            fetchSecondaryLists();
+        }, 0);
 
         const matchesInterval = setInterval(fetchLiveMatches, 10000);
         const stateInterval = setInterval(fetchCoreState, 2000);
         const listsInterval = setInterval(fetchSecondaryLists, 4000);
 
         return () => {
+            clearTimeout(kickoff);
             clearInterval(matchesInterval);
             clearInterval(stateInterval);
             clearInterval(listsInterval);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchers are stable per player; re-run only on login change
     }, [player?.id]);
 
     const completeAuth = async (account) => {
@@ -206,7 +243,7 @@ export default function App() {
                 fetchCoreState();
                 fetchSecondaryLists();
             }
-        } catch (err) {}
+        } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
     const handleCheerTrigger = async () => {
@@ -217,7 +254,7 @@ export default function App() {
                 const data = await res.json();
                 setMatchState(prev => prev ? { ...prev, userPoints: data.userPoints, sentimentAngle: data.sentimentAngle } : null);
             }
-        } catch (err) {}
+        } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
     const handleSubmitPick = async (pickId, choiceIdx) => {
@@ -239,7 +276,7 @@ export default function App() {
                 setMatchState(prev => prev ? { ...prev, userPoints: data.userPoints } : null);
                 setPicks(prev => prev.map(p => p.id === pickId ? { ...p, selectedChoice: choiceIdx } : p));
             }
-        } catch (err) {}
+        } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
     const handleSubmitChat = async (text) => {
@@ -255,7 +292,7 @@ export default function App() {
                 setChat(prev => [...prev, data.message]);
                 setMatchState(prev => prev ? { ...prev, userPoints: data.userPoints } : null);
             }
-        } catch (err) {}
+        } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
     const handleRateMoment = async (momentId, stars) => {
@@ -268,31 +305,32 @@ export default function App() {
             });
             if (res.ok) {
                 const data = await res.json();
-                setMoments(prev => prev.map(m => m.id === momentId ? data.moment : m));
-                setMatchState(prev => prev ? { ...prev, userPoints: data.userPoints } : null);
-                setSelectedModalMoment(data.moment);
+                setMoments(prev => prev.map(m => m.id === momentId ? { ...m, ...data.moment } : m));
+                setSelectedModalMoment(prev => prev ? { ...prev, ...data.moment } : prev);
             }
-        } catch (err) {}
+        } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
     const activePicksCount = picks.filter(p => p.status === 'active' && p.selectedChoice === null).length;
 
     return (
         <div className="app-container">
-            <div className="ambient-grid"></div>
-
-            <header className="topbar glass-panel">
+            <header className="topbar glass">
                 <div className="product-lockup">
-                    <div className="brand-mark">
-                        <span>P</span>
-                    </div>
-                    <div>
-                        <p className="eyebrow">Pulse Play</p>
-                        <h1>Live cricket game room</h1>
-                    </div>
+                    <BrandLogo />
+                    <h1 className="wordmark">Pulse Play</h1>
                 </div>
 
                 <div className="topbar-actions">
+                    <button
+                        className="icon-button subtle"
+                        onClick={toggleTheme}
+                        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    >
+                        <span className="material-symbols-rounded" suppressHydrationWarning>
+                            {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+                        </span>
+                    </button>
                     {player ? (
                         <div className="player-chip">
                             <span>{player.initials}</span>
@@ -311,9 +349,9 @@ export default function App() {
             </header>
 
             {liveMatches.length > 0 && (
-                <div className="match-switcher-dock glass-panel">
+                <div className="match-switcher-dock">
                     <span className="dock-label">
-                        <i className="fa-solid fa-tower-broadcast text-red"></i> Live Matches
+                        <span className="material-symbols-rounded text-red">sports_cricket</span> Live Matches
                     </span>
                     {liveMatches.map((m) => (
                         <button
@@ -331,31 +369,31 @@ export default function App() {
             <Header matchState={matchState} />
 
             <main className="main-workspace">
-                <section className="second-screen-hub glass-panel">
+                <section className="second-screen-hub glass">
                     <div className="live-strip">
                         <span>
-                            <i className="fa-solid fa-bolt text-yellow"></i> Live Pulse
+                            <span className="material-symbols-rounded text-yellow">bolt</span> Live Pulse
                         </span>
                         <strong>{commentary || 'Waiting for the next live update...'}</strong>
                     </div>
 
                     <nav className="tab-nav">
                         <button onClick={() => setActiveTab('dashboard')} className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}>
-                            <i className="fa-solid fa-chart-line"></i> Arena
+                            <span className="material-symbols-rounded">stadium</span> Arena
                         </button>
                         <button onClick={() => setActiveTab('timeline')} className={`tab-btn ${activeTab === 'timeline' ? 'active' : ''}`}>
-                            <i className="fa-solid fa-bolt"></i> Plays
+                            <span className="material-symbols-rounded">sports_cricket</span> Plays
                             <span className="count-badge">{moments.length}</span>
                         </button>
                         <button onClick={() => setActiveTab('picks')} className={`tab-btn ${activeTab === 'picks' ? 'active' : ''}`}>
-                            <i className="fa-solid fa-crosshairs"></i> Picks
+                            <span className="material-symbols-rounded">target</span> Picks
                             {activePicksCount > 0 && <span className="live-badge">{activePicksCount} open</span>}
                         </button>
                         <button onClick={() => setActiveTab('fanzone')} className={`tab-btn ${activeTab === 'fanzone' ? 'active' : ''}`}>
-                            <i className="fa-solid fa-users"></i> Room
+                            <span className="material-symbols-rounded">forum</span> Room
                         </button>
                         <button onClick={() => setActiveTab('tactical')} className={`tab-btn ${activeTab === 'tactical' ? 'active' : ''}`}>
-                            <i className="fa-solid fa-compass-drafting"></i> Intel
+                            <span className="material-symbols-rounded">query_stats</span> Intel
                         </button>
                     </nav>
 
@@ -369,14 +407,14 @@ export default function App() {
 
             {selectedModalMoment && (
                 <div onClick={() => setSelectedModalMoment(null)} className="modal-backdrop">
-                    <div onClick={event => event.stopPropagation()} className="moment-modal glass-panel">
+                    <div onClick={event => event.stopPropagation()} className="moment-modal">
                         <div className="modal-header">
                             <h3>
                                 <span>{selectedModalMoment.over}</span>
                                 {selectedModalMoment.title}
                             </h3>
-                            <button onClick={() => setSelectedModalMoment(null)} className="icon-button">
-                                <i className="fa-solid fa-xmark"></i>
+                            <button onClick={() => setSelectedModalMoment(null)} className="icon-button subtle">
+                                <span className="material-symbols-rounded">close</span>
                             </button>
                         </div>
 
@@ -400,7 +438,7 @@ export default function App() {
                                                 onClick={() => handleRateMoment(selectedModalMoment.id, star)}
                                                 className={`star-button ${isActive ? 'active' : ''}`}
                                             >
-                                                <i className="fa-solid fa-star"></i>
+                                                <span className={`material-symbols-rounded ${isActive ? 'filled' : ''}`}>star</span>
                                             </button>
                                         );
                                     })}

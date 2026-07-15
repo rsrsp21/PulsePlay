@@ -1,10 +1,13 @@
-import { currentPickRound, getSubmission, jsonResponse, selectedMatch } from '../../../lib/pulseplay.js';
+import { getSubmission, jsonResponse, pickRounds, selectedMatch } from '../../../lib/pulseplay.js';
 import { verifyUserFromRequest } from '../../../lib/firebaseAdmin.js';
 
 export async function GET(request) {
     const match = await selectedMatch();
-    const pick = await currentPickRound(match);
+    const rounds = await pickRounds(match);
     const user = await verifyUserFromRequest(request);
-    const submission = pick && user ? await getSubmission(pick.id, user.uid) : null;
-    return jsonResponse({ picks: pick ? [{ ...pick, selectedChoice: submission?.choiceIndex ?? null }] : [] });
+    const picks = await Promise.all(rounds.map(async (round) => {
+        const submission = user ? await getSubmission(round.id, user.uid) : null;
+        return { ...round, selectedChoice: submission?.choiceIndex ?? null };
+    }));
+    return jsonResponse({ picks });
 }

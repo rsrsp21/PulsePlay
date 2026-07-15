@@ -83,7 +83,14 @@ async function saveSubmission(submission) {
 async function listSubmissions(pickId) {
     const rtdb = getRealtimeDb();
     if (rtdb) {
-        const snapshot = await rtdb.ref('pulse_pick_submissions').orderByChild('pickId').equalTo(pickId).get();
+        // Submissions are keyed by `${pickId}:${userId}`, so a key-range query
+        // finds a round's submissions without needing an .indexOn rule.
+        const prefix = encodeKey(`${pickId}:`);
+        const snapshot = await rtdb.ref('pulse_pick_submissions')
+            .orderByKey()
+            .startAt(prefix)
+            .endAt(prefix + '\uf8ff')
+            .get();
         return snapshot.exists() ? Object.values(snapshot.val()) : [];
     }
     const db = getDb();
@@ -353,6 +360,7 @@ async function geminiQuestion(match) {
 export async function currentPickRound(match) {
     const id = roundId(match);
     let round = await getRound(id);
+    if (!round && !match.isLive) return null;
     if (!round) {
         const { question, generatedBy } = await geminiQuestion(match);
         const startBall = match.ballsBowled || 0;
@@ -370,6 +378,7 @@ export async function currentPickRound(match) {
             endBall: startBall + WINDOW_BALLS,
             startRuns: match.runs || 0,
             startWickets: match.wickets || 0,
+            inningsNumber: match.inningsNumber ?? null,
             createdAt: new Date().toISOString(),
             expiresAt: Math.floor(Date.now() / 1000) + WINDOW_SECONDS,
             selectedChoice: null,
@@ -379,13 +388,39 @@ export async function currentPickRound(match) {
     return resolveRound(round, match);
 }
 
+export async function pickRounds(match) {
+    const rounds = [];
+    const current = await currentPickRound(match);
+    if (current) rounds.push(current);
+
+    // Resolve and surface the previous window so submissions get awarded
+    // and players see the outcome of the round they just played.
+    const bucket = Math.max(Math.floor((match.ballsBowled || 0) / WINDOW_BALLS), 0);
+    if (bucket > 0) {
+        const previousId = `${match.guid}:b${bucket - 1}`;
+        const previous = await getRound(previousId);
+        if (previous && previous.id !== current?.id) {
+            rounds.push(await resolveRound(previous, match));
+        }
+    }
+    return rounds;
+}
+
 async function resolveRound(round, match) {
     if (round.status === 'resolved') return round;
-    const isDone = Date.now() / 1000 >= round.expiresAt || (match.ballsBowled || 0) >= round.endBall;
-    if (!isDone) return round;
 
-    const deltaRuns = (match.runs || 0) - round.startRuns;
-    const deltaWickets = (match.wickets || 0) - round.startWickets;
+    // A window resolves once its balls are actually bowled — not on a wall
+    // clock, which fires before real deliveries happen and scores 0 runs.
+    // Innings change or end of play resolves it with whatever was observed.
+    const ballsDone = (match.ballsBowled || 0) >= round.endBall;
+    const inningsChanged = round.inningsNumber !== null
+        && match.inningsNumber !== null
+        && match.inningsNumber !== round.inningsNumber;
+    const playStopped = !match.isLive;
+    if (!ballsDone && !inningsChanged && !playStopped) return round;
+
+    const deltaRuns = inningsChanged ? 0 : Math.max((match.runs || 0) - round.startRuns, 0);
+    const deltaWickets = inningsChanged ? 0 : Math.max((match.wickets || 0) - round.startWickets, 0);
     const correctChoiceIndex = deltaWickets > 0 ? 3 : deltaRuns <= 2 ? 0 : deltaRuns <= 6 ? 1 : 2;
     const winners = [];
 
@@ -456,8 +491,15 @@ export async function getChat(match) {
     }
     const rtdb = getRealtimeDb();
     if (rtdb) {
-        const snapshot = await rtdb.ref('pulse_chat').orderByChild('matchGuid').equalTo(match.guid).limitToLast(25).get();
-        const messages = snapshot.exists() ? Object.values(snapshot.val()).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))) : [];
+        // Fetch recent messages and filter in memory — avoids requiring an
+        // .indexOn rule for matchGuid in the Realtime Database.
+        const snapshot = await rtdb.ref('pulse_chat').orderByKey().limitToLast(100).get();
+        const messages = snapshot.exists()
+            ? Object.values(snapshot.val())
+                .filter((item) => !item.matchGuid || item.matchGuid === match.guid)
+                .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+                .slice(-25)
+            : [];
         return live.concat(messages);
     }
     const db = getDb();
