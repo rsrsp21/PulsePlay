@@ -189,115 +189,193 @@ function advantageFromScore({ runsRequired, ballsRemaining, wickets }) {
     return [chase, 100 - chase];
 }
 
+function getMockMatchScore(matchId) {
+    const title = "India v Pakistan (Live Offline Demo)";
+    return {
+        guid: `cricbuzz-${matchId}`,
+        cricbuzzMatchId: matchId,
+        title,
+        link: `https://www.cricbuzz.com/live-cricket-scores/${matchId}`,
+        isLive: true,
+        source: 'Pulse Play Fallback',
+        fetchedAt: new Date().toISOString(),
+        battingTeam: "India",
+        opponent: "Pakistan",
+        inningsNumber: 2,
+        inningsCount: 2,
+        runs: 152,
+        wickets: 4,
+        wicketsRemaining: 6,
+        overs: 15,
+        balls: 2,
+        oversText: "15.2",
+        ballsBowled: 92,
+        ballsRemaining: 28,
+        target: 180,
+        runsRequired: 28,
+        crr: "9.91",
+        rrr: "6.00",
+        chaseAdvantage: 65,
+        defendAdvantage: 35,
+        winProbMumbai: 65,
+        winProbChennai: 35,
+        currentStriker: "Hardik Pandya",
+        currentNonStriker: "Ravindra Jadeja",
+        currentBowler: "Shaheen Afridi",
+        recentDeliveries: ["1", "4", "W", "2", "6", "1"],
+        status: "India need 28 runs in 28 balls",
+        commentaryList: [
+            { overNumber: "15.2", event: "Ball", commText: "Shaheen Afridi to Hardik Pandya, 1 run, guided towards third man." },
+            { overNumber: "15.1", event: "Six", commText: "Shaheen Afridi to Hardik Pandya, SIX, smashed over long-on!" }
+        ],
+        rawLastUpdated: Date.now(),
+        userPoints: 0,
+        sentimentAngle: state.sentimentAngle,
+    };
+}
+
 export async function discoverMatches() {
     const now = Date.now();
     if (state.liveMatches.length && now - state.lastDiscoveryAt < 10000) return state.liveMatches;
 
-    const response = await fetch('https://www.cricbuzz.com/', {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        next: { revalidate: 10 },
-    });
-    const html = await response.text();
-    const pattern = /title="([^"]+)"\s+href="\/live-cricket-scores\/(\d+)\/([^"]+)"/gi;
-    const seen = new Set();
-    const matches = [];
-    let item;
-
-    while ((item = pattern.exec(html)) !== null) {
-        const [, title, matchId, slug] = item;
-        if (seen.has(matchId)) continue;
-        seen.add(matchId);
-        matches.push({
-            guid: `cricbuzz-${matchId}`,
-            cricbuzzMatchId: matchId,
-            title,
-            link: `https://www.cricbuzz.com/live-cricket-scores/${matchId}/${slug}`,
-            isLive: !/preview|won/i.test(title),
-            source: 'Cricbuzz',
+    try {
+        const response = await fetch('https://www.cricbuzz.com/', {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            next: { revalidate: 10 },
         });
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        const html = await response.text();
+        const pattern = /title="([^"]+)"\s+href="\/live-cricket-scores\/(\d+)\/([^"]+)"/gi;
+        const seen = new Set();
+        const matches = [];
+        let item;
+
+        while ((item = pattern.exec(html)) !== null) {
+            const [, title, matchId, slug] = item;
+            if (seen.has(matchId)) continue;
+            seen.add(matchId);
+            matches.push({
+                guid: `cricbuzz-${matchId}`,
+                cricbuzzMatchId: matchId,
+                title,
+                link: `https://www.cricbuzz.com/live-cricket-scores/${matchId}/${slug}`,
+                isLive: !/preview|won/i.test(title),
+                source: 'Cricbuzz',
+            });
+        }
+
+        if (matches.length > 0) {
+            state.liveMatches = matches;
+            state.lastDiscoveryAt = now;
+            return matches;
+        }
+    } catch (err) {
+        console.error("Failed to discover matches from Cricbuzz:", err);
     }
 
-    state.liveMatches = matches;
-    state.lastDiscoveryAt = now;
-    return matches;
+    if (!state.liveMatches.length) {
+        state.liveMatches = [{
+            guid: `cricbuzz-${DEFAULT_MATCH_ID}`,
+            cricbuzzMatchId: DEFAULT_MATCH_ID,
+            title: "India v Pakistan (Live Offline Demo)",
+            link: `https://www.cricbuzz.com/live-cricket-scores/${DEFAULT_MATCH_ID}`,
+            isLive: true,
+            source: 'Pulse Play Fallback',
+        }];
+    }
+    return state.liveMatches;
 }
 
 export async function fetchLiveScore(matchId = DEFAULT_MATCH_ID) {
     const cache = state.matchCache.get(matchId);
     if (cache && Date.now() - cache.cachedAt < 8000) return cache.data;
 
-    const response = await fetch(`https://www.cricbuzz.com/api/mcenter/livescore/${matchId}`, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0',
-            Accept: 'application/json',
-            Referer: `https://www.cricbuzz.com/live-cricket-scores/${matchId}`,
-        },
-        cache: 'no-store',
-    });
-    const payload = await response.json();
-    const miniscore = payload.miniscore || {};
-    const details = miniscore.matchScoreDetails || {};
-    const innings = details.inningsScoreList || [];
-    const currentInnings = innings.find((entry) => entry.inningsId === miniscore.inningsId) || innings[0] || {};
-    const batTeam = miniscore.batTeam || {};
-    const teamInfo = details.matchTeamInfo || [];
-    const opponent = teamInfo.find((entry) => entry.battingTeamShortName === currentInnings.batTeamName)?.bowlingTeamShortName || null;
-    const runs = batTeam.teamScore ?? currentInnings.score ?? null;
-    const wickets = batTeam.teamWkts ?? currentInnings.wickets ?? null;
-    const overs = miniscore.overs ?? currentInnings.overs ?? null;
-    const ballsBowled = currentInnings.ballNbr ?? oversToBalls(overs);
-    const ballsRemaining = ballsBowled === null ? null : Math.max(120 - ballsBowled, 0);
-    const target = miniscore.target ?? null;
-    const status = miniscore.status || details.customStatus || null;
-    const runsRequired = parseNeedRuns(status) ?? (target !== null && runs !== null ? Math.max(target - runs, 0) : null);
-    const [chaseAdvantage, defendAdvantage] = advantageFromScore({ runsRequired, ballsRemaining, wickets });
-    const title = innings
-        .slice()
-        .sort((a, b) => a.inningsId - b.inningsId)
-        .map((entry) => `${entry.batTeamName} ${entry.score}/${entry.wickets} (${entry.overs})`)
-        .join(' v ') || status || `Cricbuzz match ${matchId}`;
+    try {
+        const response = await fetch(`https://www.cricbuzz.com/api/mcenter/livescore/${matchId}`, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0',
+                Accept: 'application/json',
+                Referer: `https://www.cricbuzz.com/live-cricket-scores/${matchId}`,
+            },
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        const payload = await response.json();
+        const miniscore = payload.miniscore || {};
+        const details = miniscore.matchScoreDetails || {};
+        const innings = details.inningsScoreList || [];
+        const currentInnings = innings.find((entry) => entry.inningsId === miniscore.inningsId) || innings[0] || {};
+        const batTeam = miniscore.batTeam || {};
+        const teamInfo = details.matchTeamInfo || [];
+        const opponent = teamInfo.find((entry) => entry.battingTeamShortName === currentInnings.batTeamName)?.bowlingTeamShortName || null;
+        const runs = batTeam.teamScore ?? currentInnings.score ?? null;
+        const wickets = batTeam.teamWkts ?? currentInnings.wickets ?? null;
+        const overs = miniscore.overs ?? currentInnings.overs ?? null;
+        const ballsBowled = currentInnings.ballNbr ?? oversToBalls(overs);
+        const ballsRemaining = ballsBowled === null ? null : Math.max(120 - ballsBowled, 0);
+        const target = miniscore.target ?? null;
+        const status = miniscore.status || details.customStatus || null;
+        const runsRequired = parseNeedRuns(status) ?? (target !== null && runs !== null ? Math.max(target - runs, 0) : null);
+        const [chaseAdvantage, defendAdvantage] = advantageFromScore({ runsRequired, ballsRemaining, wickets });
+        const title = innings
+            .slice()
+            .sort((a, b) => a.inningsId - b.inningsId)
+            .map((entry) => `${entry.batTeamName} ${entry.score}/${entry.wickets} (${entry.overs})`)
+            .join(' v ') || status || `Cricbuzz match ${matchId}`;
 
-    const match = {
-        guid: `cricbuzz-${matchId}`,
-        cricbuzzMatchId: matchId,
-        title,
-        link: `https://www.cricbuzz.com/live-cricket-scores/${matchId}`,
-        isLive: details.state === 'In Progress',
-        source: 'Cricbuzz',
-        fetchedAt: new Date().toISOString(),
-        battingTeam: currentInnings.batTeamName || null,
-        opponent,
-        inningsNumber: miniscore.inningsId ?? null,
-        inningsCount: innings.length,
-        runs,
-        wickets,
-        wicketsRemaining: wickets === null ? null : Math.max(10 - wickets, 0),
-        overs: overs === null ? null : Math.trunc(Number(overs)),
-        balls: overs === null ? null : Math.round((Number(overs) - Math.trunc(Number(overs))) * 10),
-        oversText: overs === null ? null : String(overs),
-        ballsBowled,
-        ballsRemaining,
-        target,
-        runsRequired,
-        crr: miniscore.currentRunRate ?? null,
-        rrr: miniscore.requiredRunRate ?? null,
-        chaseAdvantage,
-        defendAdvantage,
-        winProbMumbai: chaseAdvantage,
-        winProbChennai: defendAdvantage,
-        currentStriker: miniscore.batsmanStriker?.batName || null,
-        currentNonStriker: miniscore.batsmanNonStriker?.batName || null,
-        currentBowler: miniscore.bowlerStriker?.bowlName || null,
-        recentDeliveries: normalizeRecentDeliveries(miniscore.recentOvsStats),
-        status,
-        commentaryList: payload.commentaryList || [],
-        rawLastUpdated: miniscore.responseLastUpdated,
-        userPoints: 0,
-        sentimentAngle: state.sentimentAngle,
-    };
+        const match = {
+            guid: `cricbuzz-${matchId}`,
+            cricbuzzMatchId: matchId,
+            title,
+            link: `https://www.cricbuzz.com/live-cricket-scores/${matchId}`,
+            isLive: details.state === 'In Progress',
+            source: 'Cricbuzz',
+            fetchedAt: new Date().toISOString(),
+            battingTeam: currentInnings.batTeamName || null,
+            opponent,
+            inningsNumber: miniscore.inningsId ?? null,
+            inningsCount: innings.length,
+            runs,
+            wickets,
+            wicketsRemaining: wickets === null ? null : Math.max(10 - wickets, 0),
+            overs: overs === null ? null : Math.trunc(Number(overs)),
+            balls: overs === null ? null : Math.round((Number(overs) - Math.trunc(Number(overs))) * 10),
+            oversText: overs === null ? null : String(overs),
+            ballsBowled,
+            ballsRemaining,
+            target,
+            runsRequired,
+            crr: miniscore.currentRunRate ?? null,
+            rrr: miniscore.requiredRunRate ?? null,
+            chaseAdvantage,
+            defendAdvantage,
+            winProbMumbai: chaseAdvantage,
+            winProbChennai: defendAdvantage,
+            currentStriker: miniscore.batsmanStriker?.batName || null,
+            currentNonStriker: miniscore.batsmanNonStriker?.batName || null,
+            currentBowler: miniscore.bowlerStriker?.bowlName || null,
+            recentDeliveries: normalizeRecentDeliveries(miniscore.recentOvsStats),
+            status,
+            commentaryList: payload.commentaryList || [],
+            rawLastUpdated: miniscore.responseLastUpdated,
+            userPoints: 0,
+            sentimentAngle: state.sentimentAngle,
+        };
 
-    state.matchCache.set(matchId, { data: match, cachedAt: Date.now() });
-    return match;
+        state.matchCache.set(matchId, { data: match, cachedAt: Date.now() });
+        return match;
+    } catch (err) {
+        console.error("Failed to fetch live score from Cricbuzz:", err);
+        if (cache) {
+            console.log("Using cached match data");
+            return cache.data;
+        }
+        return getMockMatchScore(matchId);
+    }
 }
 
 export async function selectedMatch() {
@@ -309,6 +387,7 @@ export async function selectedMatch() {
     state.activeGuid = match.guid;
     return match;
 }
+
 
 function roundId(match) {
     return `${match.guid}:b${Math.max(Math.floor((match.ballsBowled || 0) / WINDOW_BALLS), 0)}`;
