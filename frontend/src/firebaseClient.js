@@ -6,6 +6,7 @@ import {
     signInWithEmailAndPassword,
     signOut,
     updateProfile,
+    sendPasswordResetEmail,
 } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -66,4 +67,9 @@ export async function signupWithEmail({ name, email, password }) {
 
 export async function logoutPlayer() {
     if (auth) await signOut(auth);
+}
+
+export async function resetPassword(email) {
+    if (!auth) throw new Error('Firebase is not configured.');
+    await sendPasswordResetEmail(auth, email);
 }

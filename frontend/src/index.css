@@ -4,8 +4,8 @@
     --ink: #1c1e21;
     --muted: #5f6368;
     --line: rgba(28, 30, 33, 0.10);
-    --surface: rgba(255, 255, 255, 0.60);
-    --card: rgba(255, 255, 255, 0.72);
+    --surface: rgba(255, 255, 255, 0.88);
+    --card: rgba(255, 255, 255, 0.92);
     --solid: #ffffff;
     --hover: rgba(28, 30, 33, 0.05);
 
@@ -55,8 +55,8 @@
     --ink: #e7eaf0;
     --muted: #99a1ad;
     --line: rgba(231, 234, 240, 0.10);
-    --surface: rgba(18, 22, 30, 0.55);
-    --card: rgba(231, 234, 240, 0.05);
+    --surface: rgba(18, 22, 30, 0.88);
+    --card: rgba(231, 234, 240, 0.12);
     --solid: #151a23;
     --hover: rgba(231, 234, 240, 0.07);
 
@@ -1468,4 +1468,102 @@ h1, h2, h3, h4 {
         align-items: stretch;
         flex-direction: column;
     }
+}
+
+/* ---------- Auth Password Toggle & Profile Dropdown ---------- */
+
+.password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-input-wrapper input {
+    width: 100%;
+    padding-right: 44px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 6px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.password-toggle:hover {
+    color: var(--ink);
+    background: var(--hover);
+}
+
+.player-chip-container {
+    position: relative;
+}
+
+.player-chip {
+    cursor: pointer;
+    user-select: none;
+    transition: var(--transition);
+}
+
+.player-chip:hover {
+    background: var(--hover);
+}
+
+.profile-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+    animation: enter-soft 0.15s ease both;
+    z-index: 100;
+}
+
+.profile-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.profile-dropdown-item:hover {
+    background: var(--hover);
+}
+
+.profile-dropdown-item .material-symbols-rounded {
+    font-size: 18px;
+    color: var(--muted);
+}
+
+.profile-dropdown-item.danger {
+    color: var(--red);
+}
+
+.profile-dropdown-item.danger .material-symbols-rounded {
+    color: var(--red);
 }

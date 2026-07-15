@@ -12,6 +12,7 @@ import {
     listenToPlayer,
     loginWithEmail,
     logoutPlayer,
+    resetPassword,
     signupWithEmail,
 } from './firebaseClient';
 
@@ -43,6 +44,7 @@ function BrandLogo({ size = 36 }) {
 function AuthPanel({ mode, onModeChange, onSubmit, onClose }) {
     const [form, setForm] = useState({ name: '', email: '', password: '' });
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const isSignup = mode === 'signup';
 
     const handleSubmit = async (event) => {
@@ -95,13 +97,23 @@ function AuthPanel({ mode, onModeChange, onSubmit, onClose }) {
 
                 <label className="field-label">
                     Password
-                    <input
-                        type="password"
-                        value={form.password}
-                        onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-                        placeholder="Minimum 6 characters"
-                        minLength={6}
-                    />
+                    <div className="password-input-wrapper">
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            value={form.password}
+                            onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+                            placeholder="Minimum 6 characters"
+                            minLength={6}
+                        />
+                        <button 
+                            type="button" 
+                            className="password-toggle"
+                            onClick={() => setShowPassword(!showPassword)}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                            <span className="material-symbols-rounded">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                        </button>
+                    </div>
                 </label>
 
                 {error && <p className="auth-error">{error}</p>}
@@ -138,6 +150,7 @@ export default function App() {
     const [theme, setTheme] = useState(() => (
         typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
     ));
+    const [showProfileMenu, setShowProfileMenu] = useState(false);
 
     useEffect(() => listenToPlayer(setPlayer), []);
 
@@ -332,12 +345,37 @@ export default function App() {
                         </span>
                     </button>
                     {player ? (
-                        <div className="player-chip">
-                            <span>{player.initials}</span>
-                            <div>
-                                <strong>{player.name}</strong>
-                                <button className="mini-text-action" onClick={logoutPlayer}>Sign out</button>
+                        <div className="player-chip-container">
+                            <div className="player-chip" onClick={() => setShowProfileMenu(!showProfileMenu)}>
+                                <span>{player.initials}</span>
+                                <div>
+                                    <strong>{player.name}</strong>
+                                    <span className="mini-text-action" style={{ pointerEvents: 'none' }}>Account</span>
+                                </div>
                             </div>
+                            {showProfileMenu && (
+                                <div className="profile-dropdown">
+                                    <button className="profile-dropdown-item" onClick={async () => {
+                                        try {
+                                            await resetPassword(player.email);
+                                            alert("Password reset email sent! Check your inbox.");
+                                        } catch (e) {
+                                            alert("Error sending reset email: " + e.message);
+                                        }
+                                        setShowProfileMenu(false);
+                                    }}>
+                                        <span className="material-symbols-rounded">key</span>
+                                        Change password
+                                    </button>
+                                    <button className="profile-dropdown-item danger" onClick={() => {
+                                        logoutPlayer();
+                                        setShowProfileMenu(false);
+                                    }}>
+                                        <span className="material-symbols-rounded">logout</span>
+                                        Sign out
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <>
