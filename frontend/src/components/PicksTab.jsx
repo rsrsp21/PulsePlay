@@ -19,7 +19,7 @@ export default function PicksTab({ picks, onSubmitPick }) {
                 <div>
                     <p className="eyebrow">Pulse Picks</p>
                     <h2>AI prediction rounds</h2>
-                    <p className="text-sm text-muted mt-1">A new challenge opens every 3 balls. Beat the timer, hit the call, win Pulse Points.</p>
+                    <p className="text-sm text-muted mt-1">The AI reads the live scorecard and sets a fresh challenge each over. Beat the timer, hit the call, win Pulse Points.</p>
                 </div>
                 <span className="source-pill">Gemini powered</span>
             </div>
@@ -69,9 +69,9 @@ export default function PicksTab({ picks, onSubmitPick }) {
                             </div>
 
                             <div className="pick-meta">
-                                <span>Window: ball {p.startBall} to {p.endBall}</span>
+                                <span>Resolves over {p.horizonBalls ?? 1} ball{(p.horizonBalls ?? 1) === 1 ? '' : 's'}</span>
                                 <span>Agent: {p.generatedBy === 'Gemini' ? 'Gemini' : 'Pulse Play'}</span>
-                                {p.resultText && <span className="text-green">{p.resultText}</span>}
+                                {p.resultText && <span className={isResolved ? 'text-green' : ''}>{p.resultText}</span>}
                             </div>
                         </div>
                     );

@@ -1,7 +1,44 @@
+import { useEffect, useRef, useState } from 'react';
+
+const CHEERS = [
+    { key: 'shot', label: 'Shot', icon: 'sports_cricket', color: 'text-red', filled: false },
+    { key: 'boundary', label: 'Boundary', icon: 'bolt', color: 'text-blue', filled: false },
+    { key: 'maximum', label: 'Maximum', icon: 'star', color: 'text-yellow', filled: true },
+    { key: 'catch', label: 'Catch', icon: 'back_hand', color: 'text-green', filled: false },
+];
+
+// Module scope keeps the impure id/position generation out of the render body.
+let cheerSeq = 0;
+function makeBurst(cheer) {
+    cheerSeq += 1;
+    return {
+        id: `cheer-${cheerSeq}`,
+        ...cheer,
+        left: 8 + Math.random() * 84,
+        drift: Math.round((Math.random() - 0.5) * 40),
+    };
+}
+
 export default function DashboardTab({ matchState, onCheer }) {
+    const [bursts, setBursts] = useState([]);
+    const timers = useRef([]);
+
+    useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+    const fireCheer = (cheer) => {
+        const burst = makeBurst(cheer);
+        setBursts((prev) => [...prev, burst]);
+        const t = setTimeout(() => {
+            setBursts((prev) => prev.filter((b) => b.id !== burst.id));
+            timers.current = timers.current.filter((x) => x !== t);
+        }, 1200);
+        timers.current.push(t);
+        onCheer();
+    };
+
     if (!matchState) return null;
 
-    const { winProbMumbai, winProbChennai, sentimentAngle, crr, rrr, ballsRemaining, runsRequired, currentStriker, currentBowler, recentDeliveries } = matchState;
+    const { winProbMumbai, winProbChennai, sentimentAngle, crr, rrr, ballsRemaining, currentStriker, currentBowler, recentDeliveries, partnership, lastWicket } = matchState;
     const hasAdvantage = winProbMumbai !== null && winProbMumbai !== undefined && winProbChennai !== null && winProbChennai !== undefined;
 
     return (
@@ -15,8 +52,8 @@ export default function DashboardTab({ matchState, onCheer }) {
             </div>
 
             <div className="dashboard-grid">
-                <div className="insight-card">
-                    <h4>Room Energy</h4>
+                <div className="insight-card accent-yellow">
+                    <h4><span className="material-symbols-rounded card-ic">local_fire_department</span> Room Energy</h4>
                     <div className="energy-meter">
                         <div className="meter-arc">
                             <div className="meter-mask"></div>
@@ -31,8 +68,8 @@ export default function DashboardTab({ matchState, onCheer }) {
                     <p className="muted-copy">Every cheer, pick, and reaction pushes the live room pulse.</p>
                 </div>
 
-                <div className="insight-card">
-                    <h4>Chase Pressure</h4>
+                <div className="insight-card accent-blue">
+                    <h4><span className="material-symbols-rounded card-ic">speed</span> Chase Pressure</h4>
                     {hasAdvantage ? (
                         <div className="pressure-stack">
                             <div className="bar-row">
@@ -55,8 +92,8 @@ export default function DashboardTab({ matchState, onCheer }) {
                     </div>
                 </div>
 
-                <div className="insight-card">
-                    <h4>On Strike</h4>
+                <div className="insight-card accent-green">
+                    <h4><span className="material-symbols-rounded card-ic">sports_cricket</span> Middle</h4>
                     <div className="player-vs">
                         <div>
                             <span>Striker</span>
@@ -77,20 +114,38 @@ export default function DashboardTab({ matchState, onCheer }) {
                             </span>
                         ))}
                     </div>
-                    <p className="muted-copy">{runsRequired ? `${runsRequired} runs still on the board.` : 'Waiting for the next live equation.'}</p>
+                    {partnership && (
+                        <div className="mini-stat-row">
+                            <span>Partnership <strong>{partnership.runs} ({partnership.balls})</strong></span>
+                        </div>
+                    )}
+                    {lastWicket && <p className="muted-copy">Last out: {lastWicket}</p>}
                 </div>
             </div>
 
             <div className="cheer-panel">
+                <div className="reaction-layer" aria-hidden="true">
+                    {bursts.map((b) => (
+                        <span
+                            key={b.id}
+                            className={`reaction-float material-symbols-rounded ${b.color} ${b.filled ? 'filled' : ''}`}
+                            style={{ left: `${b.left}%`, '--drift': `${b.drift}px` }}
+                        >
+                            {b.icon}
+                        </span>
+                    ))}
+                </div>
                 <div>
                     <p className="eyebrow">Interact</p>
                     <h4>Send a live reaction</h4>
                 </div>
                 <div className="cheer-actions">
-                    <button onClick={onCheer}><span className="material-symbols-rounded text-red">sports_cricket</span> Shot</button>
-                    <button onClick={onCheer}><span className="material-symbols-rounded text-blue">bolt</span> Boundary</button>
-                    <button onClick={onCheer}><span className="material-symbols-rounded filled text-yellow">star</span> Maximum</button>
-                    <button onClick={onCheer}><span className="material-symbols-rounded text-green">back_hand</span> Catch</button>
+                    {CHEERS.map((cheer) => (
+                        <button key={cheer.key} onClick={() => fireCheer(cheer)}>
+                            <span className={`material-symbols-rounded ${cheer.color} ${cheer.filled ? 'filled' : ''}`}>{cheer.icon}</span>
+                            {cheer.label}
+                        </button>
+                    ))}
                 </div>
             </div>
         </div>

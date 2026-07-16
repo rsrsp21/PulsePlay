@@ -10,17 +10,20 @@ Pulse Play is a live cricket second-screen experience built as a single Next.js 
 - Surfaces commentary-driven match moments for fans to rate
 - Provides a live room chat experience for signed-in players
 - Supports switching between live matches when multiple games are available
+- Resilient data-fetching system with automatic mock fallbacks if external APIs block requests
+- Secure player profiles with password management and quick-access dropdowns
 
 ## Tech Stack
 
-- Next.js App Router
-- React 19
-- Next.js API routes
-- Firebase Authentication
+- Next.js App Router (Next.js 16)
+- React 18/19
+- Custom Vanilla CSS (Glassmorphism aesthetics, CSS variables for robust light/dark mode)
+- Next.js API routes (Serverless Functions)
+- Firebase Authentication (Email/Password, Profile Management)
 - Firebase Realtime Database or Firestore fallback
-- Cricbuzz live score endpoints
+- Cricbuzz live score endpoints (with graceful degradation/mock fallbacks)
 - Gemini API for prediction question generation
-- Vercel deployment
+- Vercel deployment (Serverless architecture)
 
 ## Project Structure
 
@@ -108,9 +111,9 @@ The app is deployed at [PulsePlay](https://pulseplay-apl.vercel.app).
 
 The project is designed to be deployed from the `frontend` directory on Vercel.
 
-## Architecture
+## Architecture & System Design
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for a concise overview of the app flow and backend responsibilities.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for a concise overview of the app flow, BFF (Backend-For-Frontend) patterns, and serverless responsibilities.
 
 ## License
 

@@ -6,7 +6,7 @@ import DashboardTab from './components/DashboardTab';
 import TimelineTab from './components/TimelineTab';
 import PicksTab from './components/PicksTab';
 import FanZoneTab from './components/FanZoneTab';
-import TacticalTab from './components/TacticalTab';
+import ScorecardTab from './components/ScorecardTab';
 import {
     isFirebaseConfigured,
     listenToPlayer,
@@ -143,6 +143,7 @@ export default function App() {
     const [moments, setMoments] = useState([]);
     const [picks, setPicks] = useState([]);
     const [chat, setChat] = useState([]);
+    const [scorecard, setScorecard] = useState(null);
     const [selectedModalMoment, setSelectedModalMoment] = useState(null);
     const [authMode, setAuthMode] = useState('signup');
     const [showAuth, setShowAuth] = useState(false);
@@ -201,6 +202,7 @@ export default function App() {
             fetch(`${API_BASE}/moments`).then(r => r.json()).then(d => setMoments(d.moments || [])).catch(() => {});
             authedFetch(`${API_BASE}/picks`).then(r => r.json()).then(d => setPicks(d.picks || [])).catch(() => {});
             authedFetch(`${API_BASE}/chat`).then(r => r.json()).then(d => setChat(d.chat || [])).catch(() => {});
+            fetch(`${API_BASE}/scorecard`).then(r => r.json()).then(d => setScorecard(d)).catch(() => {});
         } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
@@ -338,6 +340,7 @@ export default function App() {
                     <button
                         className="icon-button subtle"
                         onClick={toggleTheme}
+                        suppressHydrationWarning
                         aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                     >
                         <span className="material-symbols-rounded" suppressHydrationWarning>
@@ -427,19 +430,19 @@ export default function App() {
                             <span className="material-symbols-rounded">target</span> Picks
                             {activePicksCount > 0 && <span className="live-badge">{activePicksCount} open</span>}
                         </button>
+                        <button onClick={() => setActiveTab('scorecard')} className={`tab-btn ${activeTab === 'scorecard' ? 'active' : ''}`}>
+                            <span className="material-symbols-rounded">table_rows</span> Scorecard
+                        </button>
                         <button onClick={() => setActiveTab('fanzone')} className={`tab-btn ${activeTab === 'fanzone' ? 'active' : ''}`}>
                             <span className="material-symbols-rounded">forum</span> Room
-                        </button>
-                        <button onClick={() => setActiveTab('tactical')} className={`tab-btn ${activeTab === 'tactical' ? 'active' : ''}`}>
-                            <span className="material-symbols-rounded">query_stats</span> Intel
                         </button>
                     </nav>
 
                     {activeTab === 'dashboard' && <DashboardTab matchState={matchState} onCheer={handleCheerTrigger} />}
                     {activeTab === 'timeline' && <TimelineTab moments={moments} onOpenModal={setSelectedModalMoment} />}
                     {activeTab === 'picks' && <PicksTab picks={picks} onSubmitPick={handleSubmitPick} />}
+                    {activeTab === 'scorecard' && <ScorecardTab scorecard={scorecard} />}
                     {activeTab === 'fanzone' && <FanZoneTab chat={chat} onSubmitChat={handleSubmitChat} isSignedIn={Boolean(player)} onJoin={() => setShowAuth(true)} />}
-                    {activeTab === 'tactical' && <TacticalTab matchState={matchState} />}
                 </section>
             </main>
 
