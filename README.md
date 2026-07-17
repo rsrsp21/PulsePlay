@@ -1,64 +1,64 @@
 # Pulse Play
 
-Pulse Play is a live cricket second-screen experience built as a single Next.js application. Fans can log in, follow the current live match state, make short-window prediction picks, react to key moments, and chat in a shared room while earning Pulse Points.
+Pulse Play is a live cricket second-screen experience implemented as a single Next.js application inside `frontend/`. Fans can sign in, follow live match state, make short-window prediction picks, react to key moments, and chat in a shared room while earning Pulse Points.
 
 ## What It Does
 
-- Shows a live cricket dashboard powered by Cricbuzz match data
-- Rotates prediction questions every 3 balls
-- Awards points for correct picks and interactive actions
+- Shows a live cricket dashboard powered by Cricbuzz match discovery and live score parsing
+- Rotates prediction questions every few balls with a configurable answer window
+- Awards points for correct picks and interactive actions like cheering and moment rating
 - Surfaces commentary-driven match moments for fans to rate
 - Provides a live room chat experience for signed-in players
 - Supports switching between live matches when multiple games are available
-- Resilient data-fetching system with automatic mock fallbacks if external APIs block requests
-- Secure player profiles with password management and quick-access dropdowns
+- Uses graceful fallback state when external APIs or Firebase credentials are unavailable
 
 ## Tech Stack
 
 - Next.js App Router (Next.js 16)
-- React 18/19
-- Custom Vanilla CSS (Glassmorphism aesthetics, CSS variables for robust light/dark mode)
-- Next.js API routes (Serverless Functions)
-- Firebase Authentication (Email/Password, Profile Management)
-- Firebase Realtime Database or Firestore fallback
-- Cricbuzz live score endpoints (with graceful degradation/mock fallbacks)
-- Gemini API for prediction question generation
-- Vercel deployment (Serverless architecture)
+- React 19
+- Custom Vanilla CSS with glassmorphism-inspired UI styling
+- Next.js API routes for server-side behavior
+- Firebase Authentication for Email/Password sign-in
+- Firebase Realtime Database / Firestore fallback for state persistence
+- Cricbuzz live score endpoints with fallback handling
+- Gemini API support for prediction question generation
+- Vercel-friendly deployment structure
 
 ## Project Structure
 
-The actual app lives in `frontend/`.
+The application lives in `frontend/`.
 
-- `frontend/app/` contains the Next.js pages and API routes
-- `frontend/src/App.jsx` contains the main client experience and tabbed live room UI
-- `frontend/src/components/` contains the dashboard, timeline, picks, fan room, tactical, and header views
+- `frontend/app/` contains the Next.js UI and API routes
+- `frontend/src/App.jsx` contains the client-side live room experience, data polling, and interaction handlers
+- `frontend/src/components/` contains UI subcomponents for dashboard, picks, timeline, chat, and scorecard
 - `frontend/lib/pulseplay.js` contains match discovery, live score parsing, prediction round logic, chat, and points handling
-- `frontend/lib/firebaseAdmin.js` handles Firebase Admin connectivity on the server
-- `frontend/src/firebaseClient.js` handles Firebase sign-in/sign-up in the browser
+- `frontend/lib/firebaseAdmin.js` handles Firebase Admin initialization and request authentication
+- `frontend/src/firebaseClient.js` handles Firebase web auth on the browser
 
 ## Main User Flows
 
 1. View the current live match state and score summary
 2. Sign in or create an account with Firebase Authentication
-3. Join the live room and submit chats or fan reactions
-4. Answer Pulse Pick questions during each 3-ball window
+3. Join the live room and send chat messages
+4. Answer Pulse Pick questions during active pick windows
 5. Rate notable match moments
-6. Switch to another live match if one is available
+6. Switch to another live match if available
 
 ## API Routes
 
-The app exposes its backend behavior through Next.js API routes:
+The frontend exposes backend behavior through serverless API routes:
 
-- `GET /api/state` returns the active match state and a summary commentary line
+- `GET /api/state` returns the current active match state and commentary summary
 - `GET /api/live-matches` discovers currently live Cricbuzz fixtures
-- `GET /api/moments` returns recent commentary-derived moments
-- `GET /api/picks` returns the active or recent prediction rounds
+- `GET /api/moments` returns recent commentary-based moments
+- `GET /api/picks` returns the current prediction rounds and any user selections
+- `GET /api/chat` returns current live room chat messages
 - `POST /api/submit-pick` records a user prediction
-- `POST /api/submit-chat` stores a live room message
-- `POST /api/rate-moment` records moment feedback
-- `POST /api/trigger-boundary-cheer` updates the cheer/sentiment state
+- `POST /api/submit-chat` stores a room message
+- `POST /api/rate-moment` records a moment rating
+- `POST /api/trigger-boundary-cheer` updates cheer/sentiment state
 - `POST /api/set-active-match` switches the active match
-- `POST /api/vote-drs` and `GET /api/chat` are also available for room interaction flows
+- `POST /api/vote-drs` supports fan DRS polling interactions
 
 ## Local Development
 
@@ -80,7 +80,7 @@ npm run lint
 
 ## Environment Variables
 
-Create `frontend/.env.local` for local development:
+Create `frontend/.env.local` for local development.
 
 ```env
 GEMINI_API_KEY=your-gemini-api-key
@@ -93,27 +93,30 @@ NEXT_PUBLIC_FIREBASE_API_KEY=your-web-api-key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 NEXT_PUBLIC_FIREBASE_APP_ID=your-web-app-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_DATABASE_URL=https://your-project.firebaseio.com/
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+# Optional alternative service account format
+FIREBASE_SERVICE_ACCOUNT_BASE64=base64-encoded-service-account-json
 ```
 
 Notes:
 
-- If `GEMINI_API_KEY` is missing, Pulse Pick questions fall back to a local template
-- If Firebase Admin variables are missing, the server falls back to in-memory state where possible
-- Firebase Auth on the client requires `NEXT_PUBLIC_FIREBASE_*` variables
+- If `GEMINI_API_KEY` is missing, pick questions fall back to local logic/templates
+- If Firebase Admin credentials are missing, server-side state falls back to in-memory persistence
+- Firebase client authentication requires the `NEXT_PUBLIC_FIREBASE_*` variables
+- The app also supports `FIREBASE_SERVICE_ACCOUNT_BASE64` for server-side service account configuration
 
 ## Deployment
 
-The app is deployed at [PulsePlay](https://pulseplay-apl.vercel.app).
-
-The project is designed to be deployed from the `frontend` directory on Vercel.
+The frontend is designed to deploy from the `frontend/` directory on Vercel.
 
 ## Architecture & System Design
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for a concise overview of the app flow, BFF (Backend-For-Frontend) patterns, and serverless responsibilities.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the overall app flow, backend responsibilities, and state handling.
 
 ## License
 
