@@ -15,14 +15,14 @@ graph TD
     end
     
     subgraph External Services
-        API -->|Fetch Live Stats| Cricbuzz[Cricbuzz API]
-        API -->|Generate Questions| Gemini[Gemini AI Engine]
+        API -->|Live Scores + Full Scorecard| Cricbuzz[Cricbuzz API]
+        API -->|Generate & Judge Predictions| Gemini[Gemini AI Engine]
     end
     
     subgraph Data & Auth
         UI -->|Client Auth Login| FirebaseAuth[Firebase Auth]
         API -->|Server Verification| FirebaseAdmin[Firebase Admin SDK]
-        API -->|Store Chat/Picks| FirebaseDB[(Firebase Realtime DB)]
+        API -->|Chat, Picks, Round Pointers, Points| FirebaseDB[(Firebase Realtime DB)]
     end
 ```
 
@@ -76,20 +76,23 @@ The user interface is built using React 18/19 within the Next.js App Router fram
 
 - **`frontend/app/page.jsx`**: The main entry point rendering the Pulse Play application.
 - **`frontend/src/App.jsx`**: The orchestrator for the live room. It manages heavy client-side state, including the active tab, authentication modals, player data, and real-time polling intervals.
-- **`frontend/src/components/`**: Modular views isolated by feature (`DashboardTab`, `TimelineTab`, `PicksTab`, `FanZoneTab`, `TacticalTab`, and `Header`).
+- **`frontend/src/components/`**: Modular views isolated by feature — `Header` (live scoreboard with both batters and the bowler), `DashboardTab` (Arena), `TimelineTab` (Plays), `PicksTab`, `ScorecardTab` (full batting/bowling card), and `FanZoneTab` (Room).
 
 ### State & Styling
 - **Polling**: Instead of expensive WebSockets, the React client uses `useEffect` and `setInterval` to poll the BFF API, simulating a real-time experience while keeping infrastructure costs low.
-- **Theming**: The application uses Vanilla CSS (`index.css`) powered by CSS Variables. This allows for dynamic Light/Dark mode toggling and intricate Glassmorphism aesthetics without the overhead of heavy utility libraries like Tailwind.
+- **Match pinning**: The client is the source of truth for which match it is viewing. Once a match is resolved (or the fan switches games), the client pins its GUID and passes `?match=<guid>` on every read. This keeps the view stable across stateless serverless invocations, which do not share the in-memory "active match" — without it, each poll could fall back to a different "first live" match and the view would flip.
+- **Theming**: The application uses Vanilla CSS (`index.css`) powered by CSS Variables for a refined, minimal design system with dynamic Light/Dark toggling — no heavy utility libraries like Tailwind.
 
 ## Pulse Pick Agent (AI Integration)
 
-The platform features an intelligent agent that generates contextual prediction questions during the match. It operates in 3-ball windows:
+The platform features an intelligent agent that reads the live scorecard and runs one prediction round per match at a time. Each round watches a window of a few balls (AI-chosen, clamped to 3–12) before it resolves.
 
-1. **Context Building**: Gathers the live score, current striker, bowler, required run rate, and recent ball history.
-2. **AI Generation**: Uses the Gemini API (`GEMINI_API_KEY`) to generate a unique, highly contextual prediction question for the fans.
-3. **Fallback**: If the AI API fails or is unconfigured, it gracefully falls back to local, pre-written templated questions.
-4. **Resolution**: Closes the voting window and automatically resolves winners based on the live score delta.
+1. **Context Building**: Gathers the live scorecard — both batters (runs, balls, strike rate), the bowler's figures, partnership, required run rate, recent deliveries, and match situation. Balls remaining are derived from live data (the status line or required run rate), not a hardcoded innings length.
+2. **AI Generation**: Uses the Gemini API (`GEMINI_API_KEY`) to invent a varied, contextual question with its own 2–4 choices and a resolution horizon (e.g. runs off the next over, a wicket in the window, a batter reaching a milestone).
+3. **Fallback**: If Gemini is unconfigured or fails, it falls back to local self-resolvable templated questions.
+4. **Resolution (AI umpire)**: When the window's balls have been bowled, the observed outcome (runs, wickets, deliveries) is passed back to Gemini, which picks the winning choice; a keyword/number heuristic is the offline fallback. Interrupted windows (innings change, end of play) are voided. Winners are awarded Pulse Points, and each submission is stored with its `pickId`/`questionId`, `matchGuid`, `userId`, and answer.
+
+The active round and last-resolved round are tracked per match via Realtime Database pointers, so rounds stay consistent across serverless invocations.
 
 ## Deployment Strategy
 

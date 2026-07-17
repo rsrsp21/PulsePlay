@@ -4,12 +4,12 @@ Pulse Play is a live cricket second-screen experience implemented as a single Ne
 
 ## What It Does
 
-- Shows a live cricket dashboard powered by Cricbuzz match discovery and live score parsing
-- Rotates prediction questions every few balls with a configurable answer window
+- Shows a live cricket dashboard powered by Cricbuzz match discovery, live score parsing, and a full batting/bowling scorecard
+- Runs AI prediction rounds that read the live scorecard to ask varied, contextual questions and resolve them from the observed play
 - Awards points for correct picks and interactive actions like cheering and moment rating
 - Surfaces commentary-driven match moments for fans to rate
-- Provides a live room chat experience for signed-in players
-- Supports switching between live matches when multiple games are available
+- Provides a per-match live room chat experience for signed-in players
+- Supports switching between live matches when multiple games are available, keeping the view pinned to the chosen match
 - Uses graceful fallback state when external APIs or Firebase credentials are unavailable
 
 ## Tech Stack
@@ -48,16 +48,19 @@ The application lives in `frontend/`.
 
 The frontend exposes backend behavior through serverless API routes:
 
-- `GET /api/state` returns the current active match state and commentary summary
+Read routes accept an optional `?match=<guid>` query parameter so the client can pin the exact match it is viewing.
+
+- `GET /api/state` returns the current match state and commentary summary
+- `GET /api/scorecard` returns the full batting and bowling scorecard for both innings
 - `GET /api/live-matches` discovers currently live Cricbuzz fixtures
 - `GET /api/moments` returns recent commentary-based moments
 - `GET /api/picks` returns the current prediction rounds and any user selections
-- `GET /api/chat` returns current live room chat messages
+- `GET /api/chat` returns current live room chat messages for the match
 - `POST /api/submit-pick` records a user prediction
 - `POST /api/submit-chat` stores a room message
 - `POST /api/rate-moment` records a moment rating
 - `POST /api/trigger-boundary-cheer` updates cheer/sentiment state
-- `POST /api/set-active-match` switches the active match
+- `POST /api/set-active-match` sets the server-side default match
 - `POST /api/vote-drs` supports fan DRS polling interactions
 
 ## Local Development
@@ -80,13 +83,12 @@ npm run lint
 
 ## Environment Variables
 
-Create `frontend/.env.local` for local development.
+Create `frontend/.env` (or `.env.local`) for local development.
 
 ```env
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-2.5-flash
 CRICBUZZ_MATCH_ID=152141
-PULSE_PICK_WINDOW_BALLS=3
 PULSE_PICK_WINDOW_SECONDS=45
 PULSE_PICK_REWARD_POINTS=50
 NEXT_PUBLIC_FIREBASE_API_KEY=your-web-api-key
