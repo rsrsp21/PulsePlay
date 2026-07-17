@@ -544,13 +544,21 @@ export async function fetchScorecard(matchId = DEFAULT_MATCH_ID) {
     }
 }
 
-export async function selectedMatch() {
+const toCricbuzzId = (guid) => (typeof guid === 'string' && guid.startsWith('cricbuzz-') ? guid.replace('cricbuzz-', '') : null);
+
+export async function selectedMatch(preferredGuid) {
     const discovered = await discoverMatches();
-    const activeId = state.activeGuid?.startsWith('cricbuzz-') ? state.activeGuid.replace('cricbuzz-', '') : null;
+    // The caller (a specific client viewing a specific match) wins. Only when
+    // no match is pinned do we fall back to server memory, then to first-live.
+    // This keeps the view stable across serverless invocations, which don't
+    // share the in-memory activeGuid.
+    const preferredId = toCricbuzzId(preferredGuid);
+    const activeId = toCricbuzzId(state.activeGuid);
     const firstLive = discovered.find((match) => match.isLive) || discovered[0];
-    const matchId = activeId || firstLive?.cricbuzzMatchId || DEFAULT_MATCH_ID;
+    const matchId = preferredId || activeId || firstLive?.cricbuzzMatchId || DEFAULT_MATCH_ID;
     const match = await fetchLiveScore(matchId);
-    state.activeGuid = match.guid;
+    if (preferredId) state.activeGuid = match.guid;
+    else if (!state.activeGuid) state.activeGuid = match.guid;
     return match;
 }
 
@@ -843,7 +851,10 @@ async function resolveRound(round, match) {
 }
 
 export async function submitPick({ pickId, choiceIndex, userId = 'guest', userName = 'Player' }) {
-    const match = await selectedMatch();
+    // The pickId is prefixed with the match guid, so resolve that exact match
+    // rather than whatever happens to be the server's default.
+    const preferredGuid = typeof pickId === 'string' ? pickId.split(':')[0] : null;
+    const match = await selectedMatch(preferredGuid);
     const round = await currentPickRound(match);
     if (!round || round.id !== pickId) return { error: 'This round is no longer active', pick: round };
     if (round.status !== 'active' || Date.now() / 1000 >= round.expiresAt) return { error: 'This round is closed', pick: round };

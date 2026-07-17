@@ -4,7 +4,7 @@ import { verifyUserFromRequest } from '../../../lib/firebaseAdmin.js';
 export async function POST(request) {
     const body = await request.json();
     const firebaseUser = await verifyUserFromRequest(request);
-    const match = await selectedMatch();
+    const match = await selectedMatch(body.matchGuid);
     const message = await addChat({
         ...body,
         matchGuid: match.guid,

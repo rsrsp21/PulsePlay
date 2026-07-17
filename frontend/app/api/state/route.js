@@ -2,7 +2,8 @@ import { getUserPoints, jsonResponse, selectedMatch } from '../../../lib/pulsepl
 import { verifyUserFromRequest } from '../../../lib/firebaseAdmin.js';
 
 export async function GET(request) {
-    const match = await selectedMatch();
+    const preferred = new URL(request.url).searchParams.get('match');
+    const match = await selectedMatch(preferred);
     const user = await verifyUserFromRequest(request);
     const userPoints = user ? await getUserPoints(user.uid) : 0;
     const commentary = match.runsRequired !== null && match.ballsRemaining !== null

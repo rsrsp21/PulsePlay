@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import DashboardTab from './components/DashboardTab';
 import TimelineTab from './components/TimelineTab';
@@ -152,6 +152,10 @@ export default function App() {
         typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
     ));
     const [showProfileMenu, setShowProfileMenu] = useState(false);
+    // The match the client is pinned to. A ref so the pollers always read the
+    // latest value without restarting their intervals.
+    const matchGuidRef = useRef(null);
+    const matchQuery = () => (matchGuidRef.current ? `?match=${encodeURIComponent(matchGuidRef.current)}` : '');
 
     useEffect(() => listenToPlayer(setPlayer), []);
 
@@ -187,11 +191,17 @@ export default function App() {
 
     const fetchCoreState = async () => {
         try {
-            const res = await authedFetch(`${API_BASE}/state`);
+            const res = await authedFetch(`${API_BASE}/state${matchQuery()}`);
             if (res.ok) {
                 const data = await res.json();
+                const guid = data.matchState?.guid;
+                // Pin to the first match the server resolves, then keep it. This
+                // stops the view flipping between matches on every poll.
+                if (guid && !matchGuidRef.current) {
+                    matchGuidRef.current = guid;
+                    setActiveGuid(guid);
+                }
                 setMatchState(data.matchState);
-                setActiveGuid(data.matchState?.guid);
                 setCommentary(data.commentary);
             }
         } catch { /* ignore transient fetch errors; next poll retries */ }
@@ -199,10 +209,11 @@ export default function App() {
 
     const fetchSecondaryLists = async () => {
         try {
-            fetch(`${API_BASE}/moments`).then(r => r.json()).then(d => setMoments(d.moments || [])).catch(() => {});
-            authedFetch(`${API_BASE}/picks`).then(r => r.json()).then(d => setPicks(d.picks || [])).catch(() => {});
-            authedFetch(`${API_BASE}/chat`).then(r => r.json()).then(d => setChat(d.chat || [])).catch(() => {});
-            fetch(`${API_BASE}/scorecard`).then(r => r.json()).then(d => setScorecard(d)).catch(() => {});
+            const q = matchQuery();
+            fetch(`${API_BASE}/moments${q}`).then(r => r.json()).then(d => setMoments(d.moments || [])).catch(() => {});
+            authedFetch(`${API_BASE}/picks${q}`).then(r => r.json()).then(d => setPicks(d.picks || [])).catch(() => {});
+            authedFetch(`${API_BASE}/chat${q}`).then(r => r.json()).then(d => setChat(d.chat || [])).catch(() => {});
+            fetch(`${API_BASE}/scorecard${q}`).then(r => r.json()).then(d => setScorecard(d)).catch(() => {});
         } catch { /* ignore transient fetch errors; next poll retries */ }
     };
 
@@ -246,19 +257,21 @@ export default function App() {
     };
 
     const handleSwitchMatch = async (guid) => {
-        try {
-            const res = await fetch(`${API_BASE}/set-active-match`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ guid })
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setActiveGuid(data.activeGuid);
-                fetchCoreState();
-                fetchSecondaryLists();
-            }
-        } catch { /* ignore transient fetch errors; next poll retries */ }
+        if (guid === matchGuidRef.current) return;
+        // Pin the client to this match immediately so every poll targets it.
+        matchGuidRef.current = guid;
+        setActiveGuid(guid);
+        setScorecard(null);
+        setPicks([]);
+        setChat([]);
+        // Best-effort: also update the server default (ignored on serverless).
+        fetch(`${API_BASE}/set-active-match`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guid }),
+        }).catch(() => {});
+        fetchCoreState();
+        fetchSecondaryLists();
     };
 
     const handleCheerTrigger = async () => {
@@ -300,7 +313,7 @@ export default function App() {
             const res = await authedFetch(`${API_BASE}/submit-chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, user: player?.name || 'You', tag: 'LIVE ROOM' })
+                body: JSON.stringify({ text, user: player?.name || 'You', tag: 'LIVE ROOM', matchGuid: matchGuidRef.current })
             });
             if (res.ok) {
                 const data = await res.json();
