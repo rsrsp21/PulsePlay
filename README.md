@@ -103,7 +103,7 @@ Notes:
 
 - If `GEMINI_API_KEY` is missing, Pulse Pick questions fall back to a local template
 - If Firebase Admin variables are missing, the server falls back to in-memory state where possible
-- Firebase Auth on the client requires the `NEXT_PUBLIC_FIREBASE_*` variables
+- Firebase Auth on the client requires `NEXT_PUBLIC_FIREBASE_*` variables
 
 ## Deployment
 
